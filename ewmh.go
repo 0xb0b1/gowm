@@ -150,6 +150,19 @@ func (wm *WindowManager) setClientDesktop(c *Client) {
 		1, data)
 }
 
+// getClientDesktop reads _NET_WM_DESKTOP from a window (for WM restart)
+func (wm *WindowManager) getClientDesktop(win xproto.Window) int {
+	prop, err := xproto.GetProperty(wm.conn, false, win,
+		wm.atoms.NET_WM_DESKTOP, xproto.AtomCardinal,
+		0, 1).Reply()
+
+	if err != nil || prop == nil || prop.ValueLen == 0 {
+		return -1
+	}
+
+	return int(binary.LittleEndian.Uint32(prop.Value))
+}
+
 // setFullscreenState sets or removes _NET_WM_STATE_FULLSCREEN on a window
 func (wm *WindowManager) setFullscreenState(win xproto.Window, fullscreen bool) {
 	if fullscreen {

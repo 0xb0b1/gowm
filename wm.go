@@ -47,6 +47,9 @@ type WindowManager struct {
 
 	// IPC server
 	ipc *IPCServer
+
+	// Grid select
+	gridSelect *GridSelect
 }
 
 // NewWindowManager creates a new window manager
@@ -79,6 +82,9 @@ func NewWindowManager(conn *xgb.Conn) (*WindowManager, error) {
 
 	// Initialize scratchpad
 	wm.scratchpad = DefaultScratchpad()
+
+	// Initialize grid select
+	wm.gridSelect = NewGridSelect(wm)
 
 	// Initialize window rules
 	wm.rules = DefaultRules()
@@ -159,6 +165,15 @@ func (wm *WindowManager) keysymToKeycode(keysym xproto.Keysym) xproto.Keycode {
 	return 0
 }
 
+// keycodeToKeysym converts a keycode to a keysym
+func (wm *WindowManager) keycodeToKeysym(keycode xproto.Keycode) xproto.Keysym {
+	idx := (int(keycode) - int(wm.minKeycode)) * wm.keysymsPerCode
+	if idx >= 0 && idx < len(wm.keysyms) {
+		return wm.keysyms[idx]
+	}
+	return 0
+}
+
 // grabKeys grabs all configured keybindings
 func (wm *WindowManager) grabKeys() {
 	// Ungrab all first
@@ -230,7 +245,12 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 	// Apply window rules to determine floating and workspace
 	shouldFloat, ruleWorkspace := wm.applyRules(win)
 	targetWorkspace := wm.current
-	if ruleWorkspace != nil {
+
+	// Check if window already has a workspace assigned (for WM restart)
+	if existingWs := wm.getClientDesktop(win); existingWs >= 0 && existingWs < len(wm.workspaces) {
+		targetWorkspace = existingWs
+		log.Printf("Restoring window %d to workspace %d", win, targetWorkspace)
+	} else if ruleWorkspace != nil {
 		targetWorkspace = *ruleWorkspace
 	}
 
@@ -300,6 +320,10 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 	if targetWorkspace != wm.current {
 		xproto.UnmapWindow(wm.conn, win)
 		client.Mapped = false
+	} else {
+		// Ensure window is mapped if on current workspace
+		xproto.MapWindow(wm.conn, win)
+		client.Mapped = true
 	}
 
 	// Set EWMH desktop
@@ -310,11 +334,13 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 		wm.tile()
 	}
 
-	// Focus the new window (and raise fullscreen)
-	wm.focus(client)
-	if wantsFullscreen {
-		xproto.ConfigureWindow(wm.conn, win,
-			xproto.ConfigWindowStackMode, []uint32{xproto.StackModeAbove})
+	// Focus the new window only if on current workspace
+	if targetWorkspace == wm.current {
+		wm.focus(client)
+		if wantsFullscreen {
+			xproto.ConfigureWindow(wm.conn, win,
+				xproto.ConfigWindowStackMode, []uint32{xproto.StackModeAbove})
+		}
 	}
 
 	// Update EWMH

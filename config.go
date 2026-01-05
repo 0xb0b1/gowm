@@ -110,6 +110,7 @@ func (wm *WindowManager) SetupKeybindings() {
 		// Window management
 		{mod, wm.keysymToKeycode(XK_q)}:         ActionKill,
 		{mod | shift, wm.keysymToKeycode(XK_q)}: ActionKillAll,
+		{mod, wm.keysymToKeycode(XK_g)}:         ActionGridSelect,
 
 		// Focus
 		{mod, wm.keysymToKeycode(XK_j)}:   ActionFocusNext,

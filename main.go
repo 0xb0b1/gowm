@@ -107,6 +107,9 @@ func (wm *WindowManager) eventLoop() {
 
 		case xproto.MotionNotifyEvent:
 			wm.handleMotionNotify(e)
+
+		case xproto.ExposeEvent:
+			wm.gridSelect.HandleExpose(e)
 		}
 	}
 }
@@ -252,6 +255,11 @@ func (wm *WindowManager) handleConfigureNotify(e xproto.ConfigureNotifyEvent) {
 
 // handleKeyPress handles key press events
 func (wm *WindowManager) handleKeyPress(e xproto.KeyPressEvent) {
+	// If grid select is visible, it handles all key events
+	if wm.gridSelect.visible && wm.gridSelect.HandleKeyPress(e) {
+		return
+	}
+
 	// Clean modifier state (ignore num lock, caps lock)
 	cleanMod := e.State & (xproto.ModMask1 | xproto.ModMask4 |
 		xproto.ModMaskShift | xproto.ModMaskControl)

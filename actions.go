@@ -168,6 +168,11 @@ func ActionToggleFloat(wm *WindowManager) {
 	}
 }
 
+// ActionGridSelect shows the grid select window picker
+func ActionGridSelect(wm *WindowManager) {
+	wm.gridSelect.Toggle()
+}
+
 // ActionSwitchWorkspace returns an action that switches to workspace n
 func ActionSwitchWorkspace(n int) Action {
 	return func(wm *WindowManager) {
