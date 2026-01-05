@@ -21,10 +21,15 @@ A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://x
 - **9 Workspaces** - Quick switching with `Super+1-9`
 - **EWMH Compliant** - Works with panels, bars, and pagers
 - **Strut Support** - Automatically tiles around eww, polybar, etc.
+- **Scratchpad** - Toggle-able floating terminal with `Super+``
+- **Mouse Support** - Move/resize floating windows with Super+drag
+- **Window Rules** - Auto-float and workspace assignment by WM_CLASS
+- **Urgent Hints** - Red border for windows requesting attention
+- **IPC Socket** - External control via `gowmctl` commands
 - **Compile-time Config** - Edit `config.go` and rebuild (like xmonad)
 - **Catppuccin Theme** - Frappe color palette built-in
 - **Autostart** - Launch compositor, bar, and apps on startup
-- **~2500 lines of Go** - Simple, hackable, no runtime dependencies
+- **~3500 lines of Go** - Simple, hackable, no runtime dependencies
 
 ## Installation
 
@@ -139,6 +144,15 @@ AutostartAlways: []string{
 | `XF86AudioPlay/Next/Prev` | Media controls |
 | `XF86MonBrightness*` | Brightness controls |
 
+### Scratchpad & Floating
+
+| Key | Action |
+|-----|--------|
+| `Super+`` | Toggle scratchpad terminal |
+| `Super+s` | Sink floating window to tiled |
+| `Super+Button1` | Move floating window |
+| `Super+Button3` | Resize floating window |
+
 ### System
 
 | Key | Action |
@@ -214,6 +228,44 @@ DISPLAY=:1 thunar &
 - [jezek/xgb](https://github.com/jezek/xgb) - X11 protocol bindings
 - [jezek/xgbutil](https://github.com/jezek/xgbutil) - X11 utilities
 
+## IPC Control
+
+Control gowm externally using the `gowmctl` script:
+
+```bash
+# Copy gowmctl to your PATH
+sudo cp gowmctl /usr/local/bin/
+
+# Switch workspace
+gowmctl workspace switch 3
+
+# Query windows
+gowmctl query windows
+
+# Close focused window
+gowmctl window close
+
+# Toggle scratchpad
+gowmctl action scratchpad
+
+# See all commands
+gowmctl help
+```
+
+## Window Rules
+
+Edit `rules.go` to customize auto-float and workspace assignment:
+
+```go
+// Auto-float specific applications
+{Class: "pavucontrol", Floating: &floating},
+{Class: "steam", Title: "Friends List", Floating: &floating},
+
+// Assign apps to specific workspaces
+{Class: "discord", Workspace: intPtr(8)},
+{Class: "spotify", Workspace: intPtr(9)},
+```
+
 ## Project Structure
 
 ```
@@ -232,6 +284,12 @@ gowm/
 ├── startup.go       # Autostart handling
 ├── atoms.go         # X11 atom management
 ├── ewmh.go          # EWMH compliance
+├── scratchpad.go    # Scratchpad functionality
+├── mouse.go         # Mouse move/resize
+├── rules.go         # Window rules
+├── urgent.go        # Urgent hints handling
+├── ipc.go           # IPC socket server
+├── gowmctl          # IPC client script
 └── rect.go          # Geometry utilities
 ```
 
