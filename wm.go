@@ -41,6 +41,9 @@ type WindowManager struct {
 
 	// Mouse drag state
 	drag DragState
+
+	// Window rules
+	rules []WindowRule
 }
 
 // NewWindowManager creates a new window manager
@@ -73,6 +76,9 @@ func NewWindowManager(conn *xgb.Conn) (*WindowManager, error) {
 
 	// Initialize scratchpad
 	wm.scratchpad = DefaultScratchpad()
+
+	// Initialize window rules
+	wm.rules = DefaultRules()
 
 	return wm, nil
 }
@@ -218,6 +224,18 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 
 	log.Printf("Managing window %d: %dx%d+%d+%d", win, geom.Width, geom.Height, geom.X, geom.Y)
 
+	// Apply window rules to determine floating and workspace
+	shouldFloat, ruleWorkspace := wm.applyRules(win)
+	targetWorkspace := wm.current
+	if ruleWorkspace != nil {
+		targetWorkspace = *ruleWorkspace
+	}
+
+	// Also check EWMH window type for floating
+	if !shouldFloat {
+		shouldFloat = wm.shouldFloat(win)
+	}
+
 	client := &Client{
 		Window:    win,
 		X:         geom.X,
@@ -225,8 +243,8 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 		Width:     geom.Width,
 		Height:    geom.Height,
 		Mapped:    true,
-		Floating:  wm.shouldFloat(win),
-		Workspace: wm.current,
+		Floating:  shouldFloat,
+		Workspace: targetWorkspace,
 	}
 
 	wm.clients[win] = client
@@ -248,8 +266,14 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 	// Setup mouse button grabs for move/resize
 	wm.grabMouseButtons(win)
 
-	// Add to current workspace
-	wm.currentWorkspace().Add(client)
+	// Add to target workspace (may differ from current if rule-assigned)
+	wm.workspaces[targetWorkspace].Add(client)
+
+	// If window goes to a different workspace, unmap it
+	if targetWorkspace != wm.current {
+		xproto.UnmapWindow(wm.conn, win)
+		client.Mapped = false
+	}
 
 	// Set EWMH desktop
 	wm.setClientDesktop(client)

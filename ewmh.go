@@ -204,19 +204,9 @@ func (wm *WindowManager) shouldFloat(win xproto.Window) bool {
 		return true
 	}
 
-	// Check WM_CLASS for specific applications
-	class := wm.getWMClass(win)
-	floatingClasses := []string{
-		"Calculator", "Sxiv", "MPlayer", "mpv", "floating",
-		"Pavucontrol", "Nm-connection-editor",
-	}
-	for _, fc := range floatingClasses {
-		if class == fc {
-			return true
-		}
-	}
-
-	return false
+	// Check window rules
+	shouldFloat, _ := wm.applyRules(win)
+	return shouldFloat
 }
 
 // getWMClass returns the WM_CLASS instance name
