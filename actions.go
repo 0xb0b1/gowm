@@ -127,6 +127,10 @@ func ActionDecMaster(wm *WindowManager) {
 // ActionNextLayout cycles to the next layout
 func ActionNextLayout(wm *WindowManager) {
 	ws := wm.currentWorkspace()
+	// Sink all floating windows back to tiled when switching layouts
+	for _, c := range ws.Clients {
+		c.Floating = false
+	}
 	ws.NextLayout(wm.layouts)
 	wm.tile()
 	log.Printf("Layout: %s", ws.Layout.Name())
@@ -135,6 +139,10 @@ func ActionNextLayout(wm *WindowManager) {
 // ActionResetLayout resets to the default layout
 func ActionResetLayout(wm *WindowManager) {
 	ws := wm.currentWorkspace()
+	// Sink all floating windows back to tiled when resetting layout
+	for _, c := range ws.Clients {
+		c.Floating = false
+	}
 	ws.Layout = NewTallLayout()
 	wm.tile()
 	log.Printf("Layout reset: %s", ws.Layout.Name())
