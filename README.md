@@ -301,8 +301,7 @@ gowm/
 ## Inspiration
 
 - [xmonad](https://xmonad.org/) - The original Haskell tiling WM
-- [dwm](https://dwm.suckless.org/) - Suckless dynamic window manager
-- [wingo](https://github.com/BurntSushi/wingo) - Go window manager by xgb author
+- [bspwm](https://github.com/baskerville/bspwm) - A tiling window manager based on binary space partitioning
 
 ## License
 
