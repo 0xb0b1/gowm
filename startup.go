@@ -6,18 +6,19 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 // StartupConfig holds startup applications and settings
 type StartupConfig struct {
 	// X11 settings
-	SetWMName         string
-	KeyboardLayout    string
-	KeyboardOptions   string
-	KeyRepeatDelay    int
-	KeyRepeatRate     int
+	SetWMName          string
+	KeyboardLayout     string
+	KeyboardOptions    string
+	KeyRepeatDelay     int
+	KeyRepeatRate      int
 	DisableScreenSaver bool
-	DisableDPMS       bool
+	DisableDPMS        bool
 
 	// Autostart applications (run once)
 	AutostartOnce []string
@@ -32,13 +33,13 @@ type StartupConfig struct {
 // DefaultStartupConfig returns startup config matching your xmonad setup
 func DefaultStartupConfig() *StartupConfig {
 	return &StartupConfig{
-		SetWMName:         "LG3D", // Java/game compatibility
-		KeyboardLayout:    "us",
-		KeyboardOptions:   "caps:escape",
-		KeyRepeatDelay:    200,
-		KeyRepeatRate:     40,
+		SetWMName:          "LG3D", // Java/game compatibility
+		KeyboardLayout:     "us",
+		KeyboardOptions:    "caps:escape",
+		KeyRepeatDelay:     200,
+		KeyRepeatRate:      40,
 		DisableScreenSaver: true,
-		DisableDPMS:       true,
+		DisableDPMS:        true,
 
 		AutostartOnce: []string{
 			"parcellite",
@@ -75,6 +76,11 @@ func (wm *WindowManager) runStartup() {
 	// Cursor
 	spawn("xsetroot -cursor_name left_ptr")
 
+	// WM name for Java/game compatibility
+	if cfg.SetWMName != "" {
+		spawn("wmname %s", cfg.SetWMName)
+	}
+
 	// Keyboard
 	if cfg.KeyboardLayout != "" {
 		if cfg.KeyboardOptions != "" {
@@ -107,7 +113,7 @@ func (wm *WindowManager) runStartup() {
 	}
 
 	// Small delay to let processes die
-	spawn("sleep 0.5")
+	time.Sleep(500 * time.Millisecond)
 
 	// Start always-run apps
 	for _, cmd := range cfg.AutostartAlways {

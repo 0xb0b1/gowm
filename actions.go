@@ -134,6 +134,8 @@ func ActionNextLayout(wm *WindowManager) {
 	ws.NextLayout(wm.layouts)
 	wm.tile()
 	log.Printf("Layout: %s", ws.Layout.Name())
+	// Notify via dunst
+	spawn("notify-send -t 1000 'Layout' '%s'", ws.Layout.Name())
 }
 
 // ActionResetLayout resets to the default layout
@@ -146,6 +148,8 @@ func ActionResetLayout(wm *WindowManager) {
 	ws.Layout = NewTallLayout()
 	wm.tile()
 	log.Printf("Layout reset: %s", ws.Layout.Name())
+	// Notify via dunst
+	spawn("notify-send -t 1000 'Layout' '%s'", ws.Layout.Name())
 }
 
 // ActionSink sinks a floating window back to tiled

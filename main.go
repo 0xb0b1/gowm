@@ -359,9 +359,13 @@ func (wm *WindowManager) handleNetWMState(e xproto.ClientMessageEvent) {
 			switch action {
 			case _NET_WM_STATE_REMOVE:
 				client.Floating = false
+				// Restore border
+				xproto.ConfigureWindow(wm.conn, client.Window,
+					xproto.ConfigWindowBorderWidth, []uint32{uint32(wm.config.BorderWidth)})
+				wm.tile()
 			case _NET_WM_STATE_ADD:
 				client.Floating = true
-				// Make fullscreen
+				// Make fullscreen - no border, full screen, raised
 				client.X = 0
 				client.Y = 0
 				client.Width = wm.screen.WidthInPixels
@@ -369,12 +373,30 @@ func (wm *WindowManager) handleNetWMState(e xproto.ClientMessageEvent) {
 				xproto.ConfigureWindow(wm.conn, client.Window,
 					xproto.ConfigWindowX|xproto.ConfigWindowY|
 						xproto.ConfigWindowWidth|xproto.ConfigWindowHeight|
-						xproto.ConfigWindowBorderWidth,
-					[]uint32{0, 0, uint32(client.Width), uint32(client.Height), 0})
+						xproto.ConfigWindowBorderWidth|xproto.ConfigWindowStackMode,
+					[]uint32{0, 0, uint32(client.Width), uint32(client.Height), 0, xproto.StackModeAbove})
+				wm.focus(client)
 			case _NET_WM_STATE_TOGGLE:
 				client.Floating = !client.Floating
+				if client.Floating {
+					// Going fullscreen
+					client.X = 0
+					client.Y = 0
+					client.Width = wm.screen.WidthInPixels
+					client.Height = wm.screen.HeightInPixels
+					xproto.ConfigureWindow(wm.conn, client.Window,
+						xproto.ConfigWindowX|xproto.ConfigWindowY|
+							xproto.ConfigWindowWidth|xproto.ConfigWindowHeight|
+							xproto.ConfigWindowBorderWidth|xproto.ConfigWindowStackMode,
+						[]uint32{0, 0, uint32(client.Width), uint32(client.Height), 0, xproto.StackModeAbove})
+					wm.focus(client)
+				} else {
+					// Leaving fullscreen
+					xproto.ConfigureWindow(wm.conn, client.Window,
+						xproto.ConfigWindowBorderWidth, []uint32{uint32(wm.config.BorderWidth)})
+					wm.tile()
+				}
 			}
-			wm.tile()
 		}
 	}
 

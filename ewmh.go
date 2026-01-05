@@ -191,6 +191,25 @@ func (wm *WindowManager) isTransient(win xproto.Window) bool {
 	return err == nil && prop != nil && prop.ValueLen > 0
 }
 
+// hasFullscreenState checks if a window has _NET_WM_STATE_FULLSCREEN set
+func (wm *WindowManager) hasFullscreenState(win xproto.Window) bool {
+	prop, err := xproto.GetProperty(wm.conn, false, win,
+		wm.atoms.NET_WM_STATE, xproto.AtomAtom,
+		0, 32).Reply()
+
+	if err != nil || prop == nil || prop.ValueLen == 0 {
+		return false
+	}
+
+	for i := uint32(0); i < prop.ValueLen; i++ {
+		atom := xproto.Atom(binary.LittleEndian.Uint32(prop.Value[i*4:]))
+		if atom == wm.atoms.NET_WM_STATE_FULLSCREEN {
+			return true
+		}
+	}
+	return false
+}
+
 // shouldFloat determines if a window should be floating
 func (wm *WindowManager) shouldFloat(win xproto.Window) bool {
 	windowType := wm.getWindowType(win)

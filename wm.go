@@ -239,6 +239,12 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 		shouldFloat = wm.shouldFloat(win)
 	}
 
+	// Check if window wants fullscreen initially
+	wantsFullscreen := wm.hasFullscreenState(win)
+	if wantsFullscreen {
+		shouldFloat = true
+	}
+
 	client := &Client{
 		Window:    win,
 		X:         geom.X,
@@ -248,6 +254,14 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 		Mapped:    true,
 		Floating:  shouldFloat,
 		Workspace: targetWorkspace,
+	}
+
+	// Handle initial fullscreen
+	if wantsFullscreen {
+		client.X = 0
+		client.Y = 0
+		client.Width = wm.screen.WidthInPixels
+		client.Height = wm.screen.HeightInPixels
 	}
 
 	wm.clients[win] = client
@@ -260,11 +274,19 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 				xproto.EventMaskPropertyChange,
 		})
 
-	// Set border
-	xproto.ChangeWindowAttributes(wm.conn, win,
-		xproto.CwBorderPixel, []uint32{wm.config.UnfocusedBorderColor})
-	xproto.ConfigureWindow(wm.conn, win,
-		xproto.ConfigWindowBorderWidth, []uint32{uint32(wm.config.BorderWidth)})
+	// Set border (no border for fullscreen)
+	if wantsFullscreen {
+		xproto.ConfigureWindow(wm.conn, win,
+			xproto.ConfigWindowX|xproto.ConfigWindowY|
+				xproto.ConfigWindowWidth|xproto.ConfigWindowHeight|
+				xproto.ConfigWindowBorderWidth|xproto.ConfigWindowStackMode,
+			[]uint32{0, 0, uint32(client.Width), uint32(client.Height), 0, xproto.StackModeAbove})
+	} else {
+		xproto.ChangeWindowAttributes(wm.conn, win,
+			xproto.CwBorderPixel, []uint32{wm.config.UnfocusedBorderColor})
+		xproto.ConfigureWindow(wm.conn, win,
+			xproto.ConfigWindowBorderWidth, []uint32{uint32(wm.config.BorderWidth)})
+	}
 
 	// Setup mouse button grabs for move/resize
 	wm.grabMouseButtons(win)
@@ -281,11 +303,17 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 	// Set EWMH desktop
 	wm.setClientDesktop(client)
 
-	// Tile
-	wm.tile()
+	// Tile (skip for fullscreen - already configured)
+	if !wantsFullscreen {
+		wm.tile()
+	}
 
-	// Focus the new window
+	// Focus the new window (and raise fullscreen)
 	wm.focus(client)
+	if wantsFullscreen {
+		xproto.ConfigureWindow(wm.conn, win,
+			xproto.ConfigWindowStackMode, []uint32{xproto.StackModeAbove})
+	}
 
 	// Update EWMH
 	wm.updateClientList()
