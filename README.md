@@ -22,6 +22,7 @@ A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://x
 - **EWMH Compliant** - Works with panels, bars, and pagers
 - **Strut Support** - Automatically tiles around eww, polybar, etc.
 - **Scratchpad** - Toggle-able floating terminal with `Super+``
+- **GridSelect** - Visual window picker with search (`Super+g`)
 - **Mouse Support** - Move/resize floating windows with Super+drag
 - **Window Rules** - Auto-float and workspace assignment by WM_CLASS
 - **Urgent Hints** - Red border for windows requesting attention
@@ -29,7 +30,8 @@ A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://x
 - **Compile-time Config** - Edit `config.go` and rebuild (like xmonad)
 - **Catppuccin Theme** - Frappe color palette built-in
 - **Autostart** - Launch compositor, bar, and apps on startup
-- **~3500 lines of Go** - Simple, hackable, no runtime dependencies
+- **Restart Persistence** - Windows stay on their workspaces after restart
+- **~4100 lines of Go** - Simple, hackable, no runtime dependencies
 
 ## Installation
 
@@ -105,6 +107,7 @@ AutostartAlways: []string{
 | `Super+d` / `Super+r` | Application launcher |
 | `Super+q` | Close window |
 | `Super+Shift+q` | Close all windows |
+| `Super+g` | GridSelect (visual window picker) |
 
 ### Focus & Movement
 
@@ -285,6 +288,7 @@ gowm/
 ├── atoms.go         # X11 atom management
 ├── ewmh.go          # EWMH compliance
 ├── scratchpad.go    # Scratchpad functionality
+├── gridselect.go    # GridSelect window picker
 ├── mouse.go         # Mouse move/resize
 ├── rules.go         # Window rules
 ├── urgent.go        # Urgent hints handling
