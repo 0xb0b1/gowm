@@ -38,6 +38,9 @@ type WindowManager struct {
 
 	// Scratchpad
 	scratchpad *Scratchpad
+
+	// Mouse drag state
+	drag DragState
 }
 
 // NewWindowManager creates a new window manager
@@ -241,6 +244,9 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 		xproto.CwBorderPixel, []uint32{wm.config.UnfocusedBorderColor})
 	xproto.ConfigureWindow(wm.conn, win,
 		xproto.ConfigWindowBorderWidth, []uint32{uint32(wm.config.BorderWidth)})
+
+	// Setup mouse button grabs for move/resize
+	wm.grabMouseButtons(win)
 
 	// Add to current workspace
 	wm.currentWorkspace().Add(client)

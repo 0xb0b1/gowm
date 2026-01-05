@@ -88,6 +88,15 @@ func (wm *WindowManager) eventLoop() {
 
 		case xproto.ClientMessageEvent:
 			wm.handleClientMessage(e)
+
+		case xproto.ButtonPressEvent:
+			wm.handleButtonPress(e)
+
+		case xproto.ButtonReleaseEvent:
+			wm.handleButtonRelease(e)
+
+		case xproto.MotionNotifyEvent:
+			wm.handleMotionNotify(e)
 		}
 	}
 }
