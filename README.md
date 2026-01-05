@@ -22,7 +22,7 @@ A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://x
 - **EWMH Compliant** - Works with panels, bars, and pagers
 - **Strut Support** - Automatically tiles around eww, polybar, etc.
 - **Scratchpad** - Toggle-able floating terminal with `Super+``
-- **GridSelect** - Visual window picker with search (`Super+g`)
+- **GridSelect** - Visual window picker with Xft fonts and search (`Super+g`)
 - **Mouse Support** - Move/resize floating windows with Super+drag
 - **Window Rules** - Auto-float and workspace assignment by WM_CLASS
 - **Urgent Hints** - Red border for windows requesting attention
@@ -31,7 +31,7 @@ A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://x
 - **Catppuccin Theme** - Frappe color palette built-in
 - **Autostart** - Launch compositor, bar, and apps on startup
 - **Restart Persistence** - Windows stay on their workspaces after restart
-- **~4100 lines of Go** - Simple, hackable, no runtime dependencies
+- **~4400 lines of Go** - Simple, hackable codebase
 
 ## Installation
 
@@ -228,6 +228,7 @@ DISPLAY=:1 thunar &
 
 - Go 1.21+
 - X11 server
+- libxft-dev (for anti-aliased fonts in GridSelect)
 - [jezek/xgb](https://github.com/jezek/xgb) - X11 protocol bindings
 - [jezek/xgbutil](https://github.com/jezek/xgbutil) - X11 utilities
 

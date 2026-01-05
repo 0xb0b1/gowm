@@ -1,8 +1,67 @@
 package main
 
+/*
+#cgo pkg-config: xft x11
+#include <X11/Xlib.h>
+#include <X11/Xft/Xft.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Helper functions to work with Xft from Go
+
+static XftFont* openFont(Display *dpy, int screen, const char *name) {
+    return XftFontOpenName(dpy, screen, name);
+}
+
+static void closeFont(Display *dpy, XftFont *font) {
+    if (font) XftFontClose(dpy, font);
+}
+
+static XftDraw* createDraw(Display *dpy, Drawable d, Visual *visual, Colormap cmap) {
+    return XftDrawCreate(dpy, d, visual, cmap);
+}
+
+static void destroyDraw(XftDraw *draw) {
+    if (draw) XftDrawDestroy(draw);
+}
+
+static void drawString(XftDraw *draw, XftColor *color, XftFont *font, int x, int y, const char *str, int len) {
+    XftDrawStringUtf8(draw, color, font, x, y, (const FcChar8*)str, len);
+}
+
+static void allocColor(Display *dpy, Visual *visual, Colormap cmap, XftColor *color, unsigned int rgb) {
+    XRenderColor xrc;
+    xrc.red = ((rgb >> 16) & 0xFF) * 257;
+    xrc.green = ((rgb >> 8) & 0xFF) * 257;
+    xrc.blue = (rgb & 0xFF) * 257;
+    xrc.alpha = 0xFFFF;
+    XftColorAllocValue(dpy, visual, cmap, &xrc, color);
+}
+
+static void freeColor(Display *dpy, Visual *visual, Colormap cmap, XftColor *color) {
+    XftColorFree(dpy, visual, cmap, color);
+}
+
+static int fontHeight(XftFont *font) {
+    return font->ascent + font->descent;
+}
+
+static int fontAscent(XftFont *font) {
+    return font->ascent;
+}
+
+static int textWidth(Display *dpy, XftFont *font, const char *str, int len) {
+    XGlyphInfo extents;
+    XftTextExtentsUtf8(dpy, font, (const FcChar8*)str, len, &extents);
+    return extents.xOff;
+}
+*/
+import "C"
+
 import (
 	"log"
 	"strings"
+	"unsafe"
 
 	"github.com/jezek/xgb/xproto"
 )
@@ -24,6 +83,11 @@ type GridSelect struct {
 	cellW   int
 	cellH   int
 	padding int
+
+	// Xft resources for font rendering
+	xftFont *C.XftFont
+	xftDraw *C.XftDraw
+	display *C.Display
 }
 
 // GridItem represents a window in the grid
@@ -76,29 +140,90 @@ var gridColors = struct {
 	Crust:    0x232634,
 }
 
-// Color palette for windows (cycles through these)
-var windowPalette = []uint32{
-	0x8caaee, // Blue
-	0xca9ee6, // Mauve
-	0x81c8be, // Teal
-	0xa6d189, // Green
-	0xe5c890, // Yellow
-	0xef9f76, // Peach
-	0xf4b8e4, // Pink
-	0x85c1dc, // Sapphire
-	0xbabbf1, // Lavender
-	0x99d1db, // Sky
+// colorRangeFromClassName creates a gradient color based on window class hash
+// Mimics xmonad's colorRangeFromClassName with:
+//   lowest bg: Base (0x303446)
+//   highest bg: Surface0 (0x414559)
+func colorFromClassHash(className string) uint32 {
+	if className == "" {
+		return gridColors.Base
+	}
+
+	// Simple hash of class name
+	var hash uint32 = 0
+	for _, c := range className {
+		hash = hash*31 + uint32(c)
+	}
+
+	// Interpolate between Base and Surface0
+	// Base:     0x303446 -> R=0x30, G=0x34, B=0x46
+	// Surface0: 0x414559 -> R=0x41, G=0x45, B=0x59
+	t := float64(hash%256) / 255.0
+
+	r1, g1, b1 := uint32(0x30), uint32(0x34), uint32(0x46)
+	r2, g2, b2 := uint32(0x41), uint32(0x45), uint32(0x59)
+
+	r := uint32(float64(r1) + t*float64(r2-r1))
+	g := uint32(float64(g1) + t*float64(g2-g1))
+	b := uint32(float64(b1) + t*float64(b2-b1))
+
+	return (r << 16) | (g << 8) | b
+}
+
+// GridSelect font configuration - using Vanilla Caramel size 12
+const gridFontName = "Vanilla Caramel:size=12"
+
+// Fallback fonts if Vanilla Caramel is not installed
+var gridFontFallbacks = []string{
+	"DejaVu Sans:style=Bold:size=12",
+	"Liberation Sans:style=Bold:size=12",
+	"Sans:style=Bold:size=12",
 }
 
 // NewGridSelect creates a new grid select instance
 func NewGridSelect(wm *WindowManager) *GridSelect {
-	return &GridSelect{
+	gs := &GridSelect{
 		wm:      wm,
 		cellW:   280, // Match xmonad: gs_cellwidth = 280
 		cellH:   80,  // Match xmonad: gs_cellheight = 80
 		padding: 8,   // Match xmonad: gs_cellpadding = 8
-		cols:    4,
 	}
+
+	// Open Xlib display connection for Xft
+	displayName := C.CString("")
+	defer C.free(unsafe.Pointer(displayName))
+	gs.display = C.XOpenDisplay(displayName)
+	if gs.display == nil {
+		log.Println("GridSelect: Failed to open X display for Xft")
+		return gs
+	}
+
+	// Load font - try primary first, then fallbacks
+	// Use default screen (0) for font loading
+	screenNum := C.XDefaultScreen(gs.display)
+	fontName := C.CString(gridFontName)
+	gs.xftFont = C.openFont(gs.display, screenNum, fontName)
+	C.free(unsafe.Pointer(fontName))
+
+	if gs.xftFont == nil {
+		for _, fallback := range gridFontFallbacks {
+			fontName = C.CString(fallback)
+			gs.xftFont = C.openFont(gs.display, screenNum, fontName)
+			C.free(unsafe.Pointer(fontName))
+			if gs.xftFont != nil {
+				log.Printf("GridSelect: Using fallback font: %s", fallback)
+				break
+			}
+		}
+	}
+
+	if gs.xftFont == nil {
+		log.Println("GridSelect: Failed to load any font, text will use default")
+	} else {
+		log.Printf("GridSelect: Loaded font, height=%d", int(C.fontHeight(gs.xftFont)))
+	}
+
+	return gs
 }
 
 // Show displays the grid select window
@@ -110,13 +235,13 @@ func (gs *GridSelect) Show() {
 	// Collect all windows from all workspaces
 	gs.items = nil
 	gs.search = ""
-	colorIdx := 0
 
 	for wsIdx, ws := range gs.wm.workspaces {
 		for _, client := range ws.Clients {
 			title := gs.wm.getWindowTitle(client.Window)
+			className := gs.wm.getWMClass(client.Window)
 			if title == "" {
-				title = gs.wm.getWMClass(client.Window)
+				title = className
 			}
 			if title == "" {
 				title = "Unknown"
@@ -128,16 +253,17 @@ func (gs *GridSelect) Show() {
 				label = label[:37] + "..."
 			}
 
-			// Assign color from palette (cycles)
-			bgColor := windowPalette[colorIdx%len(windowPalette)]
-			colorIdx++
+			// Use colorRangeFromClassName style:
+			// - Inactive bg: gradient from Base to Surface0 based on class hash
+			// - Inactive fg: Text
+			bgColor := colorFromClassHash(className)
 
 			gs.items = append(gs.items, &GridItem{
 				Client:    client,
 				Workspace: wsIdx,
 				Label:     label,
 				BGColor:   bgColor,
-				FGColor:   gridColors.Crust,
+				FGColor:   gridColors.Text, // Inactive uses Text color
 			})
 		}
 	}
@@ -160,31 +286,50 @@ func (gs *GridSelect) createWindow() {
 	// Calculate grid dimensions based on filtered items
 	n := len(gs.filtered)
 	if n == 0 {
-		return
+		n = 1 // At least show search bar
 	}
 
-	// Calculate optimal columns (max 4, or less if fewer items)
-	gs.cols = 4
-	if n < gs.cols {
-		gs.cols = n
+	// Calculate optimal grid dimensions (as square as possible, like xmonad)
+	// Find the most square-like arrangement
+	gs.cols = 1
+	gs.rows = n
+	bestDiff := gs.rows - gs.cols
+
+	for c := 1; c <= n; c++ {
+		r := (n + c - 1) / c
+		diff := r - c
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff < bestDiff || (diff == bestDiff && c > gs.cols) {
+			bestDiff = diff
+			gs.cols = c
+			gs.rows = r
+		}
 	}
-	gs.rows = (n + gs.cols - 1) / gs.cols
+
+	// Limit max columns based on screen width
+	screenW := int(gs.wm.screen.WidthInPixels)
+	maxCols := (screenW - gs.padding*2) / (gs.cellW + gs.padding)
+	if gs.cols > maxCols {
+		gs.cols = maxCols
+		gs.rows = (n + gs.cols - 1) / gs.cols
+	}
 
 	gridW := gs.cols*(gs.cellW+gs.padding) + gs.padding
-	gridH := gs.rows*(gs.cellH+gs.padding) + gs.padding + 30 // +30 for search bar
+	gridH := gs.rows*(gs.cellH+gs.padding) + gs.padding
 
 	// Center on screen (gs_originFractX/Y = 0.5)
-	screenW := int(gs.wm.screen.WidthInPixels)
 	screenH := int(gs.wm.screen.HeightInPixels)
 	x := (screenW - gridW) / 2
 	y := (screenH - gridH) / 2
 
-	// Calculate item positions
+	// Calculate item positions in grid
 	for i, item := range gs.filtered {
 		col := i % gs.cols
 		row := i / gs.cols
 		item.X = gs.padding + col*(gs.cellW+gs.padding)
-		item.Y = gs.padding + row*(gs.cellH+gs.padding) + 30 // Below search bar
+		item.Y = gs.padding + row*(gs.cellH+gs.padding)
 		item.W = gs.cellW
 		item.H = gs.cellH
 	}
@@ -219,6 +364,18 @@ func (gs *GridSelect) createWindow() {
 	xproto.MapWindow(gs.wm.conn, gs.window)
 	xproto.SetInputFocus(gs.wm.conn, xproto.InputFocusPointerRoot, gs.window, xproto.TimeCurrentTime)
 
+	// Create XftDraw for the window (must be done after MapWindow)
+	if gs.display != nil && gs.xftFont != nil {
+		screen := C.XDefaultScreenOfDisplay(gs.display)
+		visual := C.XDefaultVisualOfScreen(screen)
+		colormap := C.XDefaultColormapOfScreen(screen)
+
+		// Sync xgb connection to ensure window is visible to Xlib
+		gs.wm.conn.Sync()
+
+		gs.xftDraw = C.createDraw(gs.display, C.Drawable(gs.window), visual, colormap)
+	}
+
 	// Grab keyboard
 	xproto.GrabKeyboard(
 		gs.wm.conn,
@@ -236,6 +393,12 @@ func (gs *GridSelect) Hide() {
 		return
 	}
 
+	// Clean up XftDraw
+	if gs.xftDraw != nil {
+		C.destroyDraw(gs.xftDraw)
+		gs.xftDraw = nil
+	}
+
 	xproto.UngrabKeyboard(gs.wm.conn, xproto.TimeCurrentTime)
 	xproto.FreeGC(gs.wm.conn, gs.gc)
 	xproto.DestroyWindow(gs.wm.conn, gs.window)
@@ -248,7 +411,7 @@ func (gs *GridSelect) Hide() {
 
 // Draw renders the grid
 func (gs *GridSelect) Draw() {
-	if !gs.visible || len(gs.filtered) == 0 {
+	if !gs.visible {
 		return
 	}
 
@@ -261,35 +424,71 @@ func (gs *GridSelect) Draw() {
 		})
 	}
 
-	// Draw search bar
-	gs.drawSearchBar()
-
 	// Draw items
 	for i, item := range gs.filtered {
 		gs.drawItem(i, item)
 	}
+
+	// If searching, show search text at bottom
+	if gs.search != "" && geom != nil {
+		searchText := "/" + gs.search
+		searchY := int(geom.Height) - gs.padding
+		gs.drawText(searchText, gs.padding, searchY, gridColors.Text)
+	}
 }
 
-// drawSearchBar draws the search input area
-func (gs *GridSelect) drawSearchBar() {
-	// Search bar background
-	xproto.ChangeGC(gs.wm.conn, gs.gc, xproto.GcForeground, []uint32{gridColors.Surface0})
-	xproto.PolyFillRectangle(gs.wm.conn, xproto.Drawable(gs.window), gs.gc, []xproto.Rectangle{
-		{X: int16(gs.padding), Y: int16(gs.padding), Width: uint16(gs.cols*(gs.cellW+gs.padding) - gs.padding), Height: 22},
-	})
+// drawText draws text using Xft if available, otherwise falls back to X11 core
+func (gs *GridSelect) drawText(text string, x, y int, color uint32) {
+	if gs.xftDraw != nil && gs.xftFont != nil && gs.display != nil {
+		// Use Xft for anti-aliased text
+		screen := C.XDefaultScreenOfDisplay(gs.display)
+		visual := C.XDefaultVisualOfScreen(screen)
+		colormap := C.XDefaultColormapOfScreen(screen)
 
-	// Search text
-	searchText := "Search: " + gs.search + "_"
-	xproto.ChangeGC(gs.wm.conn, gs.gc, xproto.GcForeground, []uint32{gridColors.Text})
-	xproto.ImageText8(
-		gs.wm.conn,
-		byte(len(searchText)),
-		xproto.Drawable(gs.window),
-		gs.gc,
-		int16(gs.padding+8),
-		int16(gs.padding+16),
-		searchText,
-	)
+		var xftColor C.XftColor
+		C.allocColor(gs.display, visual, colormap, &xftColor, C.uint(color))
+
+		cstr := C.CString(text)
+		C.drawString(gs.xftDraw, &xftColor, gs.xftFont, C.int(x), C.int(y), cstr, C.int(len(text)))
+		C.free(unsafe.Pointer(cstr))
+
+		C.freeColor(gs.display, visual, colormap, &xftColor)
+
+		// Flush to ensure drawing is visible
+		C.XFlush(gs.display)
+	} else {
+		// Fallback to X11 core text
+		xproto.ChangeGC(gs.wm.conn, gs.gc, xproto.GcForeground, []uint32{color})
+		xproto.ImageText8(
+			gs.wm.conn,
+			byte(len(text)),
+			xproto.Drawable(gs.window),
+			gs.gc,
+			int16(x),
+			int16(y),
+			text,
+		)
+	}
+}
+
+// getTextWidth returns the width of text in pixels
+func (gs *GridSelect) getTextWidth(text string) int {
+	if gs.xftFont != nil && gs.display != nil {
+		cstr := C.CString(text)
+		width := int(C.textWidth(gs.display, gs.xftFont, cstr, C.int(len(text))))
+		C.free(unsafe.Pointer(cstr))
+		return width
+	}
+	// Fallback: approximate 7 pixels per character
+	return len(text) * 7
+}
+
+// getFontHeight returns the font height in pixels
+func (gs *GridSelect) getFontHeight() int {
+	if gs.xftFont != nil {
+		return int(C.fontHeight(gs.xftFont))
+	}
+	return 14 // Default height
 }
 
 // drawItem draws a single grid item
@@ -298,40 +497,48 @@ func (gs *GridSelect) drawItem(idx int, item *GridItem) {
 
 	var bg, fg uint32
 	if isSelected {
-		bg = gridColors.Mauve // Selected uses Mauve (like xmonad's active bg)
+		// Active: Mauve bg (0xca9ee6), Crust fg (0x232634)
+		bg = gridColors.Mauve
 		fg = gridColors.Crust
 	} else {
+		// Inactive: gradient bg (Base to Surface0), Text fg (0xc6d0f5)
 		bg = item.BGColor
 		fg = item.FGColor
 	}
 
-	// Draw cell background with rounded feel (fill main area)
+	// Draw cell background
 	xproto.ChangeGC(gs.wm.conn, gs.gc, xproto.GcForeground, []uint32{bg})
 	xproto.PolyFillRectangle(gs.wm.conn, xproto.Drawable(gs.window), gs.gc, []xproto.Rectangle{
 		{X: int16(item.X), Y: int16(item.Y), Width: uint16(item.W), Height: uint16(item.H)},
 	})
 
-	// Draw selection border
+	// Draw border (thicker for selected)
+	borderColor := gridColors.Surface1
 	if isSelected {
-		xproto.ChangeGC(gs.wm.conn, gs.gc, xproto.GcForeground, []uint32{gridColors.Text})
+		borderColor = gridColors.Text
+	}
+	xproto.ChangeGC(gs.wm.conn, gs.gc, xproto.GcForeground, []uint32{borderColor})
+	xproto.PolyRectangle(gs.wm.conn, xproto.Drawable(gs.window), gs.gc, []xproto.Rectangle{
+		{X: int16(item.X), Y: int16(item.Y), Width: uint16(item.W - 1), Height: uint16(item.H - 1)},
+	})
+	if isSelected {
 		xproto.PolyRectangle(gs.wm.conn, xproto.Drawable(gs.window), gs.gc, []xproto.Rectangle{
-			{X: int16(item.X), Y: int16(item.Y), Width: uint16(item.W), Height: uint16(item.H)},
-			{X: int16(item.X + 1), Y: int16(item.Y + 1), Width: uint16(item.W - 2), Height: uint16(item.H - 2)},
+			{X: int16(item.X + 1), Y: int16(item.Y + 1), Width: uint16(item.W - 3), Height: uint16(item.H - 3)},
 		})
 	}
 
-	// Draw text (centered vertically)
-	xproto.ChangeGC(gs.wm.conn, gs.gc, xproto.GcForeground, []uint32{fg})
-	textY := item.Y + item.H/2 + 5
-	xproto.ImageText8(
-		gs.wm.conn,
-		byte(len(item.Label)),
-		xproto.Drawable(gs.window),
-		gs.gc,
-		int16(item.X+12),
-		int16(textY),
-		item.Label,
-	)
+	// Draw text (centered in cell)
+	textW := gs.getTextWidth(item.Label)
+	textX := item.X + (item.W-textW)/2
+	if textX < item.X+8 {
+		textX = item.X + 8
+	}
+
+	// Vertical centering: baseline at cell center + ascent/2
+	fontH := gs.getFontHeight()
+	textY := item.Y + item.H/2 + fontH/4
+
+	gs.drawText(item.Label, textX, textY, fg)
 }
 
 // HandleKeyPress handles keyboard input in grid select
@@ -434,25 +641,27 @@ func (gs *GridSelect) updateFilter() {
 		}
 	}
 
-	// Reset selection
-	gs.selected = 0
+	// Reset selection if out of bounds
+	if gs.selected >= len(gs.filtered) {
+		gs.selected = 0
+	}
 
 	// Recreate window with new size
 	if gs.visible {
+		// Clean up XftDraw before destroying window
+		if gs.xftDraw != nil {
+			C.destroyDraw(gs.xftDraw)
+			gs.xftDraw = nil
+		}
+
 		xproto.UngrabKeyboard(gs.wm.conn, xproto.TimeCurrentTime)
 		xproto.FreeGC(gs.wm.conn, gs.gc)
 		xproto.DestroyWindow(gs.wm.conn, gs.window)
 
 		if len(gs.filtered) > 0 {
 			gs.createWindow()
-			gs.Draw()
-		} else {
-			// No matches, just show search bar
-			gs.cols = 1
-			gs.rows = 0
-			gs.createWindow()
-			gs.Draw()
 		}
+		gs.Draw()
 	}
 }
 
@@ -537,4 +746,19 @@ func (gs *GridSelect) HandleExpose(e xproto.ExposeEvent) bool {
 	}
 	gs.Draw()
 	return true
+}
+
+// Close cleans up Xft resources
+func (gs *GridSelect) Close() {
+	gs.Hide()
+
+	if gs.xftFont != nil && gs.display != nil {
+		C.closeFont(gs.display, gs.xftFont)
+		gs.xftFont = nil
+	}
+
+	if gs.display != nil {
+		C.XCloseDisplay(gs.display)
+		gs.display = nil
+	}
 }
