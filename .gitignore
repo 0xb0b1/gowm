@@ -1,0 +1,14 @@
+# Binary
+gowm
+
+# Plan
+x11-tiling-wm-plan.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
