@@ -42,6 +42,7 @@ func DefaultRules() []WindowRule {
 		{Class: "steam", Title: "Steam - News", Floating: &floating},
 
 		// Games (CS2, etc.)
+		{Class: "steam_app_730", Floating: &floating}, // CS2
 		{Class: "cs2", Floating: &floating},
 		{Class: "csgo_linux64", Floating: &floating},
 		{Class: "hl2_linux", Floating: &floating},
