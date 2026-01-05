@@ -1,0 +1,31 @@
+#!/bin/bash
+# gowmctl - Command line client for gowm IPC
+#
+# Usage:
+#   gowmctl <command> [args]
+#
+# Examples:
+#   gowmctl workspace switch 2
+#   gowmctl query windows
+#   gowmctl window close
+#   gowmctl help
+
+SOCK="${XDG_RUNTIME_DIR:-/tmp}/gowm.sock"
+
+if [ ! -S "$SOCK" ]; then
+    echo "Error: gowm IPC socket not found at $SOCK" >&2
+    echo "Is gowm running?" >&2
+    exit 1
+fi
+
+if [ $# -eq 0 ]; then
+    echo "Usage: gowmctl <command> [args]"
+    echo "Try 'gowmctl help' for available commands"
+    exit 1
+fi
+
+# Send command and receive response
+echo "$*" | nc -U -q0 "$SOCK" 2>/dev/null || {
+    # Fallback for systems without -q option
+    echo "$*" | timeout 1 nc -U "$SOCK" 2>/dev/null
+}

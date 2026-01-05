@@ -38,6 +38,16 @@ func main() {
 	log.Printf("gowm started on screen %dx%d",
 		wm.screen.WidthInPixels, wm.screen.HeightInPixels)
 
+	// Start IPC server
+	ipc, err := NewIPCServer(wm)
+	if err != nil {
+		log.Printf("Warning: Failed to start IPC server: %v", err)
+	} else {
+		wm.ipc = ipc
+		ipc.Start()
+		defer ipc.Stop()
+	}
+
 	// Run startup commands
 	wm.runStartup()
 

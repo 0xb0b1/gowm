@@ -44,6 +44,9 @@ type WindowManager struct {
 
 	// Window rules
 	rules []WindowRule
+
+	// IPC server
+	ipc *IPCServer
 }
 
 // NewWindowManager creates a new window manager
