@@ -150,6 +150,19 @@ func (wm *WindowManager) setClientDesktop(c *Client) {
 		1, data)
 }
 
+// setFullscreenState sets or removes _NET_WM_STATE_FULLSCREEN on a window
+func (wm *WindowManager) setFullscreenState(win xproto.Window, fullscreen bool) {
+	if fullscreen {
+		data := make([]byte, 4)
+		binary.LittleEndian.PutUint32(data, uint32(wm.atoms.NET_WM_STATE_FULLSCREEN))
+		xproto.ChangeProperty(wm.conn, xproto.PropModeReplace, win,
+			wm.atoms.NET_WM_STATE, xproto.AtomAtom, 32,
+			1, data)
+	} else {
+		xproto.DeleteProperty(wm.conn, win, wm.atoms.NET_WM_STATE)
+	}
+}
+
 // getWindowType returns the EWMH window type
 func (wm *WindowManager) getWindowType(win xproto.Window) WindowType {
 	prop, err := xproto.GetProperty(wm.conn, false, win,

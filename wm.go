@@ -276,6 +276,8 @@ func (wm *WindowManager) manageWindow(win xproto.Window) {
 
 	// Set border (no border for fullscreen)
 	if wantsFullscreen {
+		// Ensure fullscreen state is set (eww bar will check this)
+		wm.setFullscreenState(win, true)
 		xproto.ConfigureWindow(wm.conn, win,
 			xproto.ConfigWindowX|xproto.ConfigWindowY|
 				xproto.ConfigWindowWidth|xproto.ConfigWindowHeight|
