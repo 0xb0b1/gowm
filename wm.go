@@ -325,9 +325,17 @@ func (wm *WindowManager) focus(c *Client) {
 
 	// Unfocus previous
 	if wm.focused != nil && wm.focused != c {
+		// Use urgent color if urgent, otherwise unfocused color
+		borderColor := wm.config.UnfocusedBorderColor
+		if wm.focused.Urgent {
+			borderColor = wm.config.UrgentBorderColor
+		}
 		xproto.ChangeWindowAttributes(wm.conn, wm.focused.Window,
-			xproto.CwBorderPixel, []uint32{wm.config.UnfocusedBorderColor})
+			xproto.CwBorderPixel, []uint32{borderColor})
 	}
+
+	// Clear urgent status on focus
+	wm.clearUrgent(c)
 
 	// Focus new - use RevertToParent which is safer
 	xproto.SetInputFocus(wm.conn,

@@ -50,6 +50,7 @@ type Config struct {
 	GapWidth             uint16
 	FocusedBorderColor   uint32
 	UnfocusedBorderColor uint32
+	UrgentBorderColor    uint32
 
 	// Behavior
 	FocusFollowsMouse bool
@@ -81,6 +82,7 @@ func DefaultConfig() *Config {
 		GapWidth:             2,
 		FocusedBorderColor:   ColorLavender,
 		UnfocusedBorderColor: ColorSurface0,
+		UrgentBorderColor:    ColorRed, // Red for urgent windows
 		FocusFollowsMouse:    true,
 		ModKey:               xproto.ModMask4, // Super key
 		Terminal:             "kitty",

@@ -277,8 +277,17 @@ func (wm *WindowManager) handleEnterNotify(e xproto.EnterNotifyEvent) {
 
 // handlePropertyNotify handles property changes
 func (wm *WindowManager) handlePropertyNotify(e xproto.PropertyNotifyEvent) {
-	// Handle window property changes if needed
-	// For now, we don't need to do much here
+	// Check for WM_HINTS changes (urgent hint)
+	if e.Atom == xproto.AtomWmHints {
+		wm.handleUrgentHint(e.Window)
+	}
+
+	// Check for _NET_WM_STATE changes (demands attention)
+	if e.Atom == wm.atoms.NET_WM_STATE {
+		if wm.checkNetWMStateDemandsAttention(e.Window) {
+			wm.handleUrgentHint(e.Window)
+		}
+	}
 }
 
 // handleClientMessage handles client messages (EWMH requests)

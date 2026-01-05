@@ -13,6 +13,7 @@ type Client struct {
 	Mapped    bool
 	Floating  bool
 	Workspace int
+	Urgent    bool // Window requests attention
 }
 
 // Geometry returns the client's current geometry as a Rect
