@@ -95,6 +95,9 @@ func (wm *WindowManager) SetupKeybindings() {
 	ctrl := uint16(xproto.ModMaskControl)
 
 	wm.config.Keybindings = map[KeyCombo]Action{
+		// Scratchpad
+		{mod, wm.keysymToKeycode(XK_grave)}: ActionToggleScratchpad,
+
 		// Applications
 		{mod, wm.keysymToKeycode(XK_Return)}:         ActionSpawn(wm.config.Terminal),
 		{mod | shift, wm.keysymToKeycode(XK_Return)}: ActionSpawn(wm.config.Terminal + " --class floating"),

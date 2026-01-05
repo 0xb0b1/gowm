@@ -193,3 +193,8 @@ func ActionQuit(wm *WindowManager) {
 	log.Println("Quitting...")
 	wm.running = false
 }
+
+// ActionToggleScratchpad toggles the scratchpad visibility
+func ActionToggleScratchpad(wm *WindowManager) {
+	wm.ToggleScratchpad()
+}

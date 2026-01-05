@@ -35,6 +35,9 @@ type WindowManager struct {
 	// Struts (reserved space for panels/bars)
 	// [left, right, top, bottom]
 	struts [4]uint32
+
+	// Scratchpad
+	scratchpad *Scratchpad
 }
 
 // NewWindowManager creates a new window manager
@@ -64,6 +67,9 @@ func NewWindowManager(conn *xgb.Conn) (*WindowManager, error) {
 	for i := 1; i <= 9; i++ {
 		wm.workspaces = append(wm.workspaces, NewWorkspace(i-1, fmt.Sprintf("%d", i)))
 	}
+
+	// Initialize scratchpad
+	wm.scratchpad = DefaultScratchpad()
 
 	return wm, nil
 }

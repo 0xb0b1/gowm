@@ -117,6 +117,12 @@ func (wm *WindowManager) handleMapRequest(e xproto.MapRequestEvent) {
 		return
 	}
 
+	// Check if it's the scratchpad window
+	if wm.isScratchpadWindow(e.Window) {
+		wm.handleScratchpadMap(e.Window)
+		return
+	}
+
 	// Then manage it (this will tile and focus)
 	wm.manageWindow(e.Window)
 }
@@ -140,6 +146,13 @@ func (wm *WindowManager) handleUnmapNotify(e xproto.UnmapNotifyEvent) {
 // handleDestroyNotify handles a window being destroyed
 func (wm *WindowManager) handleDestroyNotify(e xproto.DestroyNotifyEvent) {
 	log.Printf("DestroyNotify: window=%d", e.Window)
+
+	// Check if scratchpad was destroyed
+	if wm.scratchpad.window == e.Window {
+		wm.handleScratchpadDestroy(e.Window)
+		return
+	}
+
 	wm.unmanageWindow(e.Window)
 }
 
