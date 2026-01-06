@@ -17,12 +17,14 @@ A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://x
 
 ## Features
 
-- **Tiling Layouts** - Tall (master/stack), Full (monocle), Grid
+- **Tiling Layouts** - Tall, Full, Grid, Spiral, ThreeColumn, CenteredMaster
 - **9 Workspaces** - Quick switching with `Super+1-9`
 - **EWMH Compliant** - Works with panels, bars, and pagers
 - **Strut Support** - Automatically tiles around eww, polybar, etc.
 - **Scratchpad** - Toggle-able floating terminal with `Super+``
 - **GridSelect** - Visual window picker with Xft fonts and search (`Super+g`)
+- **Window Gaps** - Configurable inner/outer gaps between windows
+- **Focus Follows Mouse** - Optional mouse-driven focus
 - **Mouse Support** - Move/resize floating windows with Super+drag
 - **Window Rules** - Auto-float and workspace assignment by WM_CLASS
 - **Urgent Hints** - Red border for windows requesting attention
@@ -31,7 +33,7 @@ A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://x
 - **Catppuccin Theme** - Frappe color palette built-in
 - **Autostart** - Launch compositor, bar, and apps on startup
 - **Restart Persistence** - Windows stay on their workspaces after restart
-- **~4400 lines of Go** - Simple, hackable codebase
+- **~5000 lines of Go** - Simple, hackable codebase
 
 ## Installation
 
@@ -72,9 +74,11 @@ Edit `config.go` and rebuild. Configuration is compile-time for type safety and 
 
 ```go
 BorderWidth:          2,
-GapWidth:             2,
+OuterGap:             4,  // Gap between windows and screen edge
+InnerGap:             4,  // Gap between windows
 FocusedBorderColor:   ColorLavender,  // #babbf1
 UnfocusedBorderColor: ColorSurface0,  // #414559
+FocusFollowsMouse:    true,
 ```
 
 ### Default Applications

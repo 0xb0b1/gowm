@@ -73,6 +73,9 @@ func NewWindowManager(conn *xgb.Conn) (*WindowManager, error) {
 		NewTallLayout(),
 		NewFullLayout(),
 		NewGridLayout(),
+		NewSpiralLayout(),
+		NewThreeColumnLayout(),
+		NewCenteredMasterLayout(),
 	}
 
 	// Create 9 workspaces
@@ -427,17 +430,18 @@ func (wm *WindowManager) tile() {
 	}
 
 	// Calculate usable area accounting for struts (panels/bars)
-	gap := wm.config.GapWidth
+	outerGap := wm.config.OuterGap
+	innerGap := wm.config.InnerGap
 	left := uint16(wm.struts[0])
 	right := uint16(wm.struts[1])
 	top := uint16(wm.struts[2])
 	bottom := uint16(wm.struts[3])
 
 	area := Rect{
-		X:      int16(gap + left),
-		Y:      int16(gap + top),
-		Width:  wm.screen.WidthInPixels - 2*gap - left - right,
-		Height: wm.screen.HeightInPixels - 2*gap - top - bottom,
+		X:      int16(outerGap + left),
+		Y:      int16(outerGap + top),
+		Width:  wm.screen.WidthInPixels - 2*outerGap - left - right,
+		Height: wm.screen.HeightInPixels - 2*outerGap - top - bottom,
 	}
 
 	// Get positions from layout
@@ -448,8 +452,8 @@ func (wm *WindowManager) tile() {
 	for i, client := range clients {
 		r := rects[i]
 
-		// Account for gaps between windows
-		r = r.Shrink(gap)
+		// Account for inner gaps between windows
+		r = r.Shrink(innerGap)
 
 		// Account for border width
 		w := r.Width

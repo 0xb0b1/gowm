@@ -47,7 +47,9 @@ const (
 type Config struct {
 	// Appearance
 	BorderWidth          uint16
-	GapWidth             uint16
+	GapWidth             uint16 // Deprecated: use OuterGap and InnerGap
+	OuterGap             uint16 // Gap between windows and screen edge
+	InnerGap             uint16 // Gap between windows
 	FocusedBorderColor   uint32
 	UnfocusedBorderColor uint32
 	UrgentBorderColor    uint32
@@ -79,7 +81,8 @@ type Action func(*WindowManager)
 func DefaultConfig() *Config {
 	return &Config{
 		BorderWidth:          2,
-		GapWidth:             2,
+		OuterGap:             4, // Gap between windows and screen edge
+		InnerGap:             4, // Gap between windows
 		FocusedBorderColor:   ColorLavender,
 		UnfocusedBorderColor: ColorSurface0,
 		UrgentBorderColor:    ColorRed, // Red for urgent windows
