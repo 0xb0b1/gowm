@@ -6,6 +6,8 @@
    ├───┼───┤  ┃╻┃┣┳┛
    │ w │ m │  ┗┻┛╹ ╹
    └───┴───┘
+   ━━━━━━━━━  catppuccin frappe
+   🭫🭫🭫🭫🭫🭫🭫🭫🭫  #ca9ee6 #8caaee #a6d189 #e5c890
 ```
 
 A minimal tiling window manager for X11, written in Go. Inspired by [xmonad](https://xmonad.org/).
