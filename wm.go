@@ -34,7 +34,8 @@ type WindowManager struct {
 
 	// Struts (reserved space for panels/bars)
 	// [left, right, top, bottom]
-	struts [4]uint32
+	struts        [4]uint32
+	strutsEnabled bool // Whether to respect struts when tiling
 
 	// Scratchpad
 	scratchpad *Scratchpad
@@ -58,14 +59,15 @@ func NewWindowManager(conn *xgb.Conn) (*WindowManager, error) {
 	screen := setup.DefaultScreen(conn)
 
 	wm := &WindowManager{
-		conn:       conn,
-		root:       screen.Root,
-		screen:     screen,
-		clients:    make(map[xproto.Window]*Client),
-		config:     DefaultConfig(),
-		running:    true,
-		minKeycode: setup.MinKeycode,
-		maxKeycode: setup.MaxKeycode,
+		conn:          conn,
+		root:          screen.Root,
+		screen:        screen,
+		clients:       make(map[xproto.Window]*Client),
+		config:        DefaultConfig(),
+		running:       true,
+		minKeycode:    setup.MinKeycode,
+		maxKeycode:    setup.MaxKeycode,
+		strutsEnabled: true,
 	}
 
 	// Initialize layouts
@@ -432,10 +434,15 @@ func (wm *WindowManager) tile() {
 	// Calculate usable area accounting for struts (panels/bars)
 	outerGap := wm.config.OuterGap
 	innerGap := wm.config.InnerGap
-	left := uint16(wm.struts[0])
-	right := uint16(wm.struts[1])
-	top := uint16(wm.struts[2])
-	bottom := uint16(wm.struts[3])
+
+	// Only apply struts if enabled
+	var left, right, top, bottom uint16
+	if wm.strutsEnabled {
+		left = uint16(wm.struts[0])
+		right = uint16(wm.struts[1])
+		top = uint16(wm.struts[2])
+		bottom = uint16(wm.struts[3])
+	}
 
 	area := Rect{
 		X:      int16(outerGap + left),

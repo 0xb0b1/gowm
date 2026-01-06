@@ -136,6 +136,7 @@ func (wm *WindowManager) SetupKeybindings() {
 		// Layout
 		{mod, wm.keysymToKeycode(XK_space)}:         ActionNextLayout,
 		{mod | shift, wm.keysymToKeycode(XK_space)}: ActionResetLayout,
+		{mod, wm.keysymToKeycode(XK_b)}:             ActionToggleStruts,
 
 		// Floating
 		{mod, wm.keysymToKeycode(XK_s)}: ActionSink,

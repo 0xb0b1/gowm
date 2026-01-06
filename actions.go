@@ -183,6 +183,17 @@ func ActionGridSelectSpawn(wm *WindowManager) {
 	wm.gridSelect.ShowSpawn()
 }
 
+// ActionToggleStruts toggles whether to respect panel/bar struts
+func ActionToggleStruts(wm *WindowManager) {
+	wm.strutsEnabled = !wm.strutsEnabled
+	wm.tile()
+	status := "enabled"
+	if !wm.strutsEnabled {
+		status = "disabled"
+	}
+	spawn("notify-send -t 1000 'Struts' '%s'", status)
+}
+
 // ActionSwitchWorkspace returns an action that switches to workspace n
 func ActionSwitchWorkspace(n int) Action {
 	return func(wm *WindowManager) {
