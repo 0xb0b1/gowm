@@ -1,6 +1,14 @@
 # gowm
 
-A minimal, pure Go tiling window manager for X11, inspired by [xmonad](https://xmonad.org/).
+```
+   ┌───┬───┐
+   │ g │ o │  ╻ ╻╻ ╻
+   ├───┼───┤  ┃╻┃┣┳┛
+   │ w │ m │  ┗┻┛╹ ╹
+   └───┴───┘
+```
+
+A minimal tiling window manager for X11, written in Go. Inspired by [xmonad](https://xmonad.org/).
 
 ```
 ┌────────────────────────────────────────────────────────┐
