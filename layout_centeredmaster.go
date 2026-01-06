@@ -134,3 +134,7 @@ func (l *CenteredMasterLayout) HandleMessage(msg LayoutMessage) {
 		}
 	}
 }
+
+func (l *CenteredMasterLayout) IsMonocle() bool {
+	return false
+}

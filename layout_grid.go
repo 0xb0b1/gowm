@@ -43,3 +43,7 @@ func (l *GridLayout) Arrange(clients []*Client, area Rect) []Rect {
 func (l *GridLayout) HandleMessage(msg LayoutMessage) {
 	// Grid layout doesn't respond to resize messages
 }
+
+func (l *GridLayout) IsMonocle() bool {
+	return false
+}

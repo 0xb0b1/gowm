@@ -103,3 +103,7 @@ func (l *SpiralLayout) HandleMessage(msg LayoutMessage) {
 		}
 	}
 }
+
+func (l *SpiralLayout) IsMonocle() bool {
+	return false
+}

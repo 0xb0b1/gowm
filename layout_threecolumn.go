@@ -133,3 +133,7 @@ func (l *ThreeColumnLayout) HandleMessage(msg LayoutMessage) {
 		}
 	}
 }
+
+func (l *ThreeColumnLayout) IsMonocle() bool {
+	return false
+}

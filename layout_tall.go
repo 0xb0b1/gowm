@@ -98,3 +98,7 @@ func (l *TallLayout) HandleMessage(msg LayoutMessage) {
 		}
 	}
 }
+
+func (l *TallLayout) IsMonocle() bool {
+	return false
+}

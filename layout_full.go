@@ -23,3 +23,7 @@ func (l *FullLayout) Arrange(clients []*Client, area Rect) []Rect {
 func (l *FullLayout) HandleMessage(msg LayoutMessage) {
 	// Full layout doesn't respond to resize messages
 }
+
+func (l *FullLayout) IsMonocle() bool {
+	return true
+}

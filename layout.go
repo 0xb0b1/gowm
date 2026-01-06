@@ -6,6 +6,8 @@ type Layout interface {
 	Arrange(clients []*Client, area Rect) []Rect
 	// HandleMessage processes layout-specific messages (resize, etc.)
 	HandleMessage(msg LayoutMessage)
+	// IsMonocle returns true if only the focused window should be visible
+	IsMonocle() bool
 }
 
 // LayoutMessage is a message sent to layouts for modifications

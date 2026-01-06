@@ -131,6 +131,8 @@ func ActionNextLayout(wm *WindowManager) {
 	for _, c := range ws.Clients {
 		c.Floating = false
 	}
+	// Re-map all windows (in case coming from monocle layout)
+	wm.mapAllTiledWindows()
 	ws.NextLayout(wm.layouts)
 	wm.tile()
 	log.Printf("Layout: %s", ws.Layout.Name())
@@ -145,6 +147,8 @@ func ActionResetLayout(wm *WindowManager) {
 	for _, c := range ws.Clients {
 		c.Floating = false
 	}
+	// Re-map all windows (in case coming from monocle layout)
+	wm.mapAllTiledWindows()
 	ws.Layout = NewTallLayout()
 	wm.tile()
 	log.Printf("Layout reset: %s", ws.Layout.Name())

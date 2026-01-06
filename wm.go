@@ -422,6 +422,15 @@ func (wm *WindowManager) focus(c *Client) {
 	wm.updateActiveWindow()
 }
 
+// mapAllTiledWindows maps all tiled windows on the current workspace
+// Used when switching from monocle to other layouts
+func (wm *WindowManager) mapAllTiledWindows() {
+	ws := wm.currentWorkspace()
+	for _, client := range ws.TiledClients() {
+		xproto.MapWindow(wm.conn, client.Window)
+	}
+}
+
 // tile arranges windows according to the current layout
 func (wm *WindowManager) tile() {
 	ws := wm.currentWorkspace()
@@ -453,14 +462,37 @@ func (wm *WindowManager) tile() {
 
 	// Get positions from layout
 	rects := ws.Layout.Arrange(clients, area)
+	isMonocle := ws.Layout.IsMonocle()
+
+	// Find focused client index for monocle layouts
+	focusedIdx := 0
+	for i, client := range clients {
+		if client == wm.focused {
+			focusedIdx = i
+			break
+		}
+	}
 
 	// Apply positions
 	bw := wm.config.BorderWidth
 	for i, client := range clients {
+		// In monocle mode, only show the focused window
+		if isMonocle && i != focusedIdx {
+			xproto.UnmapWindow(wm.conn, client.Window)
+			continue
+		}
+
+		// Make sure window is mapped (for monocle when switching focus)
+		if isMonocle {
+			xproto.MapWindow(wm.conn, client.Window)
+		}
+
 		r := rects[i]
 
-		// Account for inner gaps between windows
-		r = r.Shrink(innerGap)
+		// Account for inner gaps between windows (not in monocle)
+		if !isMonocle {
+			r = r.Shrink(innerGap)
+		}
 
 		// Account for border width
 		w := r.Width
