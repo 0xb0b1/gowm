@@ -173,6 +173,16 @@ func ActionGridSelect(wm *WindowManager) {
 	wm.gridSelect.Toggle()
 }
 
+// ActionGridSelectWorkspaces shows workspace grid selector
+func ActionGridSelectWorkspaces(wm *WindowManager) {
+	wm.gridSelect.ShowWorkspaces()
+}
+
+// ActionGridSelectSpawn shows application launcher grid
+func ActionGridSelectSpawn(wm *WindowManager) {
+	wm.gridSelect.ShowSpawn()
+}
+
 // ActionSwitchWorkspace returns an action that switches to workspace n
 func ActionSwitchWorkspace(n int) Action {
 	return func(wm *WindowManager) {

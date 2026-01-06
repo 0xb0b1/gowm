@@ -111,6 +111,8 @@ func (wm *WindowManager) SetupKeybindings() {
 		{mod, wm.keysymToKeycode(XK_q)}:         ActionKill,
 		{mod | shift, wm.keysymToKeycode(XK_q)}: ActionKillAll,
 		{mod, wm.keysymToKeycode(XK_g)}:         ActionGridSelect,
+		{mod | shift, wm.keysymToKeycode(XK_g)}: ActionGridSelectWorkspaces,
+		{mod, wm.keysymToKeycode(XK_p)}:         ActionGridSelectSpawn,
 
 		// Focus
 		{mod, wm.keysymToKeycode(XK_j)}:   ActionFocusNext,

@@ -59,11 +59,21 @@ static int textWidth(Display *dpy, XftFont *font, const char *str, int len) {
 import "C"
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"unsafe"
 
 	"github.com/jezek/xgb/xproto"
+)
+
+// GridSelectMode determines the grid content type
+type GridSelectMode int
+
+const (
+	GridModeWindows GridSelectMode = iota
+	GridModeWorkspaces
+	GridModeSpawn
 )
 
 // GridSelect displays a grid of all windows for selection (like xmonad's GridSelect)
@@ -78,11 +88,14 @@ type GridSelect struct {
 	cols     int
 	rows     int
 	search   string
+	mode     GridSelectMode
 
 	// Config matching xmonad
-	cellW   int
-	cellH   int
-	padding int
+	cellW        int
+	cellH        int
+	padding      int
+	originFractX float64 // 0.0 = left, 0.5 = center, 1.0 = right
+	originFractY float64 // 0.0 = top, 0.5 = center, 1.0 = bottom
 
 	// Xft resources for font rendering
 	xftFont *C.XftFont
@@ -90,11 +103,12 @@ type GridSelect struct {
 	display *C.Display
 }
 
-// GridItem represents a window in the grid
+// GridItem represents an item in the grid
 type GridItem struct {
-	Client    *Client
-	Workspace int
+	Client    *Client // For window mode
+	Workspace int     // Workspace index
 	Label     string
+	Action    string // Command to run (for spawn mode)
 	X, Y      int
 	W, H      int
 	BGColor   uint32
@@ -183,10 +197,13 @@ var gridFontFallbacks = []string{
 // NewGridSelect creates a new grid select instance
 func NewGridSelect(wm *WindowManager) *GridSelect {
 	gs := &GridSelect{
-		wm:      wm,
-		cellW:   280, // Match xmonad: gs_cellwidth = 280
-		cellH:   80,  // Match xmonad: gs_cellheight = 80
-		padding: 8,   // Match xmonad: gs_cellpadding = 8
+		wm:           wm,
+		cellW:        280,  // Match xmonad: gs_cellwidth = 280
+		cellH:        80,   // Match xmonad: gs_cellheight = 80
+		padding:      8,    // Match xmonad: gs_cellpadding = 8
+		originFractX: 0.5,  // Center horizontally
+		originFractY: 0.5,  // Center vertically
+		mode:         GridModeWindows,
 	}
 
 	// Open Xlib display connection for Xft
@@ -235,6 +252,7 @@ func (gs *GridSelect) Show() {
 	// Collect all windows from all workspaces
 	gs.items = nil
 	gs.search = ""
+	gs.mode = GridModeWindows
 
 	for wsIdx, ws := range gs.wm.workspaces {
 		for _, client := range ws.Clients {
@@ -270,6 +288,101 @@ func (gs *GridSelect) Show() {
 
 	if len(gs.items) == 0 {
 		log.Println("GridSelect: No windows to show")
+		return
+	}
+
+	gs.filtered = gs.items
+	gs.selected = 0
+	gs.visible = true
+
+	gs.createWindow()
+	gs.Draw()
+}
+
+// ShowWorkspaces displays a grid of workspaces for selection
+func (gs *GridSelect) ShowWorkspaces() {
+	if gs.visible {
+		return
+	}
+
+	gs.items = nil
+	gs.search = ""
+	gs.mode = GridModeWorkspaces
+
+	for i, ws := range gs.wm.workspaces {
+		label := ws.Name
+		windowCount := len(ws.Clients)
+		if windowCount > 0 {
+			label = fmt.Sprintf("%s (%d)", ws.Name, windowCount)
+		}
+
+		// Color based on workspace state
+		var bgColor uint32
+		if i == gs.wm.current {
+			bgColor = gridColors.Surface1 // Current workspace
+		} else if windowCount > 0 {
+			bgColor = gridColors.Surface0 // Has windows
+		} else {
+			bgColor = gridColors.Base // Empty
+		}
+
+		gs.items = append(gs.items, &GridItem{
+			Workspace: i,
+			Label:     label,
+			BGColor:   bgColor,
+			FGColor:   gridColors.Text,
+		})
+	}
+
+	gs.filtered = gs.items
+	gs.selected = gs.wm.current
+	gs.visible = true
+
+	gs.createWindow()
+	gs.Draw()
+}
+
+// SpawnItem represents an application to launch
+type SpawnItem struct {
+	Name    string
+	Command string
+}
+
+// Default spawn items - can be customized in config
+var defaultSpawnItems = []SpawnItem{
+	{"Terminal", "alacritty"},
+	{"Browser", "firefox"},
+	{"File Manager", "thunar"},
+	{"Editor", "code"},
+	{"Discord", "discord"},
+	{"Spotify", "spotify"},
+	{"Steam", "steam"},
+	{"OBS", "obs"},
+}
+
+// ShowSpawn displays a grid of applications to launch
+func (gs *GridSelect) ShowSpawn() {
+	if gs.visible {
+		return
+	}
+
+	gs.items = nil
+	gs.search = ""
+	gs.mode = GridModeSpawn
+
+	for i, app := range defaultSpawnItems {
+		bgColor := colorFromClassHash(app.Name)
+		gs.items = append(gs.items, &GridItem{
+			Workspace: i, // Reuse for index
+			Label:     app.Name,
+			Action:    app.Command,
+			BGColor:   bgColor,
+			FGColor:   gridColors.Text,
+		})
+	}
+
+	if len(gs.items) == 0 {
+		log.Println("GridSelect: No spawn items configured")
 		return
 	}
 
@@ -319,10 +432,10 @@ func (gs *GridSelect) createWindow() {
 	gridW := gs.cols*(gs.cellW+gs.padding) + gs.padding
 	gridH := gs.rows*(gs.cellH+gs.padding) + gs.padding
 
-	// Center on screen (gs_originFractX/Y = 0.5)
+	// Position using originFractX/Y (0.5 = center)
 	screenH := int(gs.wm.screen.HeightInPixels)
-	x := (screenW - gridW) / 2
-	y := (screenH - gridH) / 2
+	x := int(float64(screenW-gridW) * gs.originFractX)
+	y := int(float64(screenH-gridH) * gs.originFractY)
 
 	// Calculate item positions in grid
 	for i, item := range gs.filtered {
@@ -352,7 +465,8 @@ func (gs *GridSelect) createWindow() {
 			gridColors.Base,
 			gridColors.Surface1, // Border color
 			1,                   // override redirect - bypass WM
-			xproto.EventMaskExposure | xproto.EventMaskKeyPress,
+			xproto.EventMaskExposure | xproto.EventMaskKeyPress |
+				xproto.EventMaskButtonPress | xproto.EventMaskPointerMotion,
 		},
 	)
 
@@ -385,6 +499,19 @@ func (gs *GridSelect) createWindow() {
 		xproto.GrabModeAsync,
 		xproto.GrabModeAsync,
 	)
+
+	// Grab pointer for mouse selection
+	xproto.GrabPointer(
+		gs.wm.conn,
+		true,
+		gs.window,
+		xproto.EventMaskButtonPress|xproto.EventMaskPointerMotion,
+		xproto.GrabModeAsync,
+		xproto.GrabModeAsync,
+		gs.window,
+		xproto.CursorNone,
+		xproto.TimeCurrentTime,
+	)
 }
 
 // Hide closes the grid select window
@@ -399,6 +526,7 @@ func (gs *GridSelect) Hide() {
 		gs.xftDraw = nil
 	}
 
+	xproto.UngrabPointer(gs.wm.conn, xproto.TimeCurrentTime)
 	xproto.UngrabKeyboard(gs.wm.conn, xproto.TimeCurrentTime)
 	xproto.FreeGC(gs.wm.conn, gs.gc)
 	xproto.DestroyWindow(gs.wm.conn, gs.window)
@@ -654,6 +782,7 @@ func (gs *GridSelect) updateFilter() {
 			gs.xftDraw = nil
 		}
 
+		xproto.UngrabPointer(gs.wm.conn, xproto.TimeCurrentTime)
 		xproto.UngrabKeyboard(gs.wm.conn, xproto.TimeCurrentTime)
 		xproto.FreeGC(gs.wm.conn, gs.gc)
 		xproto.DestroyWindow(gs.wm.conn, gs.window)
@@ -706,7 +835,7 @@ func (gs *GridSelect) MoveSelection(dx, dy int) {
 	gs.Draw()
 }
 
-// SelectCurrent selects the currently highlighted window
+// SelectCurrent selects the currently highlighted item based on mode
 func (gs *GridSelect) SelectCurrent() {
 	if len(gs.filtered) == 0 || gs.selected >= len(gs.filtered) {
 		gs.Hide()
@@ -715,17 +844,30 @@ func (gs *GridSelect) SelectCurrent() {
 
 	item := gs.filtered[gs.selected]
 
-	// Switch to workspace if needed
-	if item.Workspace != gs.wm.current {
+	switch gs.mode {
+	case GridModeWindows:
+		// Switch to workspace if needed
+		if item.Workspace != gs.wm.current {
+			gs.wm.switchToWorkspace(item.Workspace)
+		}
+		// Focus the window
+		if item.Client != nil {
+			gs.wm.focus(item.Client)
+			// Raise the window
+			xproto.ConfigureWindow(gs.wm.conn, item.Client.Window,
+				xproto.ConfigWindowStackMode, []uint32{xproto.StackModeAbove})
+		}
+
+	case GridModeWorkspaces:
+		// Switch to selected workspace
 		gs.wm.switchToWorkspace(item.Workspace)
+
+	case GridModeSpawn:
+		// Launch the application
+		if item.Action != "" {
+			spawn(item.Action)
+		}
 	}
-
-	// Focus the window
-	gs.wm.focus(item.Client)
-
-	// Raise the window
-	xproto.ConfigureWindow(gs.wm.conn, item.Client.Window,
-		xproto.ConfigWindowStackMode, []uint32{xproto.StackModeAbove})
 
 	gs.Hide()
 }
@@ -745,6 +887,57 @@ func (gs *GridSelect) HandleExpose(e xproto.ExposeEvent) bool {
 		return false
 	}
 	gs.Draw()
+	return true
+}
+
+// HandleButtonPress handles mouse clicks in the grid
+func (gs *GridSelect) HandleButtonPress(e xproto.ButtonPressEvent) bool {
+	if !gs.visible || e.Event != gs.window {
+		return false
+	}
+
+	x, y := int(e.EventX), int(e.EventY)
+
+	// Check if click is on an item
+	for i, item := range gs.filtered {
+		if x >= item.X && x < item.X+item.W && y >= item.Y && y < item.Y+item.H {
+			gs.selected = i
+			if e.Detail == xproto.ButtonIndex1 {
+				// Left click - select
+				gs.SelectCurrent()
+			} else {
+				// Other buttons - just highlight
+				gs.Draw()
+			}
+			return true
+		}
+	}
+
+	// Click on empty space - close grid (like xmonad's gs_cancelOnEmptyClick)
+	if e.Detail == xproto.ButtonIndex1 {
+		gs.Hide()
+	}
+	return true
+}
+
+// HandleMotionNotify handles mouse movement for hover highlighting
+func (gs *GridSelect) HandleMotionNotify(e xproto.MotionNotifyEvent) bool {
+	if !gs.visible || e.Event != gs.window {
+		return false
+	}
+
+	x, y := int(e.EventX), int(e.EventY)
+
+	// Check if hovering over an item
+	for i, item := range gs.filtered {
+		if x >= item.X && x < item.X+item.W && y >= item.Y && y < item.Y+item.H {
+			if gs.selected != i {
+				gs.selected = i
+				gs.Draw()
+			}
+			return true
+		}
+	}
 	return true
 }
 

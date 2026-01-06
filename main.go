@@ -100,13 +100,17 @@ func (wm *WindowManager) eventLoop() {
 			wm.handleClientMessage(e)
 
 		case xproto.ButtonPressEvent:
-			wm.handleButtonPress(e)
+			if !wm.gridSelect.HandleButtonPress(e) {
+				wm.handleButtonPress(e)
+			}
 
 		case xproto.ButtonReleaseEvent:
 			wm.handleButtonRelease(e)
 
 		case xproto.MotionNotifyEvent:
-			wm.handleMotionNotify(e)
+			if !wm.gridSelect.HandleMotionNotify(e) {
+				wm.handleMotionNotify(e)
+			}
 
 		case xproto.ExposeEvent:
 			wm.gridSelect.HandleExpose(e)
